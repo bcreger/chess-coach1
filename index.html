@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Chess Coach — Stockfish</title>
+
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--panel2:#18263a;--line:#2a3a50;--muted:#9aabc0;--text:#edf3fb;--accent:#7dd3fc;--good:#4ade80;--warn:#fbbf24;--bad:#fb7185}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#17263a 0,#0b1220 55%);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{max-width:1180px;margin:auto;padding:22px 20px 10px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{font-weight:800;font-size:22px;letter-spacing:-.5px}.brand span{color:var(--accent)}.sub{color:var(--muted);font-size:12px}
+main{max-width:1180px;margin:auto;padding:12px 20px 36px;display:grid;grid-template-columns:minmax(300px,610px) minmax(300px,1fr);gap:20px}
+.panel{background:linear-gradient(180deg,#152238,#101a2a);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 16px 40px #0003}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.turn{font-weight:700}.pill{font-size:11px;padding:5px 9px;border-radius:99px;background:#20364b;color:#bde9ff}
+.board-wrap{width:100%;max-width:590px;margin:auto;position:relative}
+.board{display:grid;grid-template-columns:repeat(8,1fr);aspect-ratio:1;border:5px solid #26364b;border-radius:5px;overflow:hidden;box-shadow:0 12px 32px #0005}
+.square{border:0;border-radius:0;padding:0;position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1;cursor:pointer;color:inherit}
+.light{background:#e9dfc9}.dark{background:#78916f}.square.selected{box-shadow:inset 0 0 0 5px #facc15}
+.square.last{background-image:linear-gradient(#facc1555,#facc1555)}
+.piece{font-family:"DejaVu Sans","Segoe UI Symbol",serif;font-size:clamp(27px,6.6vw,55px);line-height:1;user-select:none;filter:drop-shadow(0 1px 1px #0005)}
+.white-piece{color:#fffdf4;text-shadow:-1px -1px 0 #384252,1px -1px 0 #384252,-1px 1px 0 #384252,1px 1px 0 #384252}
+.black-piece{color:#171c24;text-shadow:0 1px 0 #eee8dc}
+.coord{position:absolute;font-size:10px;font-weight:700;opacity:.8;pointer-events:none}.rank{left:4px;top:2px}.file{right:4px;bottom:1px}
+.dot{position:absolute;width:23%;height:23%;border-radius:50%;background:#15251d66;pointer-events:none}.capture-dot{position:absolute;inset:4%;border:5px solid #15251d66;border-radius:50%;pointer-events:none}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+button,select,input{font:inherit}button,.btn{background:#24374d;color:var(--text);border:1px solid #3b526c;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:650}
+button:hover{filter:brightness(1.15)}button.primary{background:#0e7490;border-color:#22a6c7}button:disabled{opacity:.4;cursor:not-allowed}
+select{background:#0d1726;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px}
+label{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px}
+.right{display:grid;gap:14px;align-content:start}.section-title{font-size:14px;font-weight:800;margin:0 0 10px;letter-spacing:.2px}
+.evalrow{display:flex;align-items:center;gap:12px}.evalnum{font-size:28px;font-weight:800;min-width:74px;font-variant-numeric:tabular-nums}.evalbar{height:13px;background:#e7e9ed;border-radius:20px;overflow:hidden;flex:1}.evalfill{height:100%;background:#27364a;width:50%;transition:width .25s}
+.status{font-size:12px;color:var(--muted);margin-top:6px}.feedback{padding:12px;border-radius:12px;background:#0c1726;border:1px solid var(--line);min-height:92px}
+.feedback strong{display:block;margin-bottom:4px}.tag{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:3px 7px;margin-right:7px;background:#26364a}
+.tag.good{color:var(--good)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}.tag.neutral{color:#cbd5e1}
+.muted{color:var(--muted)}.small{font-size:12px}.moves{max-height:240px;overflow:auto;display:grid;grid-template-columns:38px 1fr 1fr;gap:4px;font-variant-numeric:tabular-nums}
+.move-no{color:var(--muted);padding:5px}.move{border:0;background:transparent;text-align:left;padding:5px 7px;border-radius:6px;font-weight:500}.move.active{background:#25425a;color:#bde9ff}
+.pv{font-family:ui-monospace,SFMono-Regular,monospace;line-height:1.7;word-break:break-word;color:#d4e5f5}
+.settings{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.range{width:125px;accent-color:#38bdf8}
+.footer{max-width:1180px;margin:0 auto;padding:0 20px 28px;color:var(--muted);font-size:11px}
+.notice{padding:10px 12px;border-radius:10px;background:#332b17;border:1px solid #665222;color:#f7d98a;font-size:12px}
+@media(max-width:820px){main{grid-template-columns:1fr;padding:10px 12px 28px}header{padding:17px 14px 8px}.panel{padding:12px}.board-wrap{max-width:min(100%,560px)}.piece{font-size:clamp(27px,10vw,55px)}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">♞ CHESS <span>COACH</span></div><div class="sub">Your personal Stockfish training board</div></div><div class="pill" id="engineBadge">Connecting engine…</div></header>
+<main>
+<section class="panel">
+ <div class="topbar"><div><div class="turn" id="turnLabel">White to move</div><div class="sub" id="gameLabel">New game · Standard position</div></div><span class="pill" id="modeBadge">Practice</span></div>
+ <div class="board-wrap"><div class="board" id="board" role="group" aria-label="Chess board"></div></div>
+ <div class="controls">
+  <button id="undoBtn">↶ Undo</button><button id="newBtn">＋ New game</button><button id="flipBtn">⇅ Flip board</button><button id="hintBtn" class="primary">Show best move</button>
+ </div>
+ <div class="controls settings">
+  <label>Mode <select id="mode"><option value="practice">Practice — play both sides</option><option value="engine">Play Stockfish (you are White)</option></select></label>
+  <label>Depth <input class="range" id="depth" type="range" min="8" max="20" value="14"><b id="depthVal">14</b></label>
+ </div>
+ <div class="status" id="boardStatus">Select a piece, then select a highlighted square.</div>
+</section>
+<aside class="right">
+ <section class="panel">
+  <h2 class="section-title">POSITION EVALUATION</h2>
+  <div class="evalrow"><div class="evalnum" id="evalNum">—</div><div class="evalbar"><div class="evalfill" id="evalFill"></div></div></div>
+  <div class="status" id="evalStatus">Waiting for engine analysis…</div>
+ </section>
+ <section class="panel">
+  <h2 class="section-title">MOVE COACH</h2>
+  <div class="feedback" id="feedback"><strong>Welcome to Chess Coach</strong><span class="small muted">Make a move to receive feedback. The coach compares your move with Stockfish's evaluation of the position before and after it.</span></div>
+  <div style="margin-top:12px"><div class="small muted" style="margin-bottom:5px">BEST CONTINUATION</div><div class="pv" id="pv">Engine line will appear here.</div></div>
+ </section>
+ <section class="panel">
+  <h2 class="section-title">MOVE HISTORY</h2>
+  <div class="moves" id="moves"><span class="muted small">No moves yet.</span></div>
+ </section>
+ <section class="panel">
+  <h2 class="section-title">TRAINING SETTINGS</h2>
+  <div class="settings"><label><input type="checkbox" id="autoAnalyze" checked> Analyze after every move</label><label><input type="checkbox" id="speak" > Read feedback aloud</label></div>
+  <p class="small muted">Move grades use centipawn loss as a practical guide, not an official FIDE or Chess.com accuracy score. A move's strategic quality can be more nuanced than one number.</p>
+  <button id="reviewBtn" style="width:100%">Analyze current position</button>
+ </section>
+ <div class="notice" id="engineNotice">The engine runs locally in your browser. The first load downloads the Stockfish WebAssembly files (about 1.7 MB). Internet access is required for the initial load.</div>
+</aside>
+</main>
+<div class="footer">Stockfish is free software under GPL-3.0. This training interface is an independent project and is not affiliated with the Stockfish developers. Engine: Stockfish.js 19 Lite Single-Threaded. Chess rules: chess.js.</div>
+<script type="module">
+import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/dist/esm/chess.js";
+(() => {
+"use strict";
+const game = new Chess();
+const $ = id => document.getElementById(id);
+const glyph = {wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"♚",bq:"♛",br:"♜",bb:"♝",bn:"♞",bp:"♟︎"};
+let selected=null, legalTargets=[], flipped=false, lastMove=null, history=[], evalBefore=null, currentEval=null, bestUci=null, engine=null, engineReady=false, searchResolve=null, searchId=0, analyzing=false, engineBusy=false;
+const depth=()=>Number($("depth").value);
+const engineBase="https://cdn.jsdelivr.net/npm/stockfish@19.0.1/bin/";
+const engineScript=engineBase+"stockfish-19-lite-single.js";
+const engineWasm=engineBase+"stockfish-19-lite-single.wasm";
+
+function setBadge(t,ok=false){$("engineBadge").textContent=t;$("engineBadge").style.background=ok?"#153c31":"#20364b";$("engineBadge").style.color=ok?"#86efac":"#bde9ff";}
+function fen(){return game.fen();}
+function render(){
+ const board=$("board"); board.innerHTML="";
+ const ranks=flipped?[0,1,2,3,4,5,6,7]:[7,6,5,4,3,2,1,0];
+ const files=flipped?[7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7];
+ for(const r of ranks) for(const f of files){
+  const sq="abcdefgh"[f]+(r+1), piece=game.get(sq), btn=document.createElement("button");
+  btn.className="square "+(((r+1+f)%2===0)?"light":"dark");
+  if(selected===sq)btn.classList.add("selected");
+  if(lastMove&&(lastMove.from===sq||lastMove.to===sq))btn.classList.add("last");
+  btn.dataset.square=sq; btn.setAttribute("aria-label",sq+(piece?", "+piece.color+" "+piece.type:""));
+  if(piece){const span=document.createElement("span");span.className="piece "+(piece.color==="w"?"white-piece":"black-piece");span.textContent=glyph[piece.color+piece.type];btn.append(span);}
+  if(legalTargets.includes(sq)){const marker=document.createElement("span");marker.className=piece?"capture-dot":"dot";btn.append(marker);}
+  if((!flipped&&f===0)||(flipped&&f===7)){const c=document.createElement("span");c.className="coord rank";c.textContent=String(r+1);btn.append(c);}
+  if((!flipped&&r===0)||(flipped&&r===7)){const c=document.createElement("span");c.className="coord file";c.textContent="abcdefgh"[f];btn.append(c);}
+  btn.addEventListener("click",()=>onSquare(sq));board.append(btn);
+ }
+ $("turnLabel").textContent=game.isGameOver()?(game.isCheckmate()?"Checkmate":game.isDraw()?"Draw":"Game over"):(game.turn()==="w"?"White":"Black")+" to move";
+ $("gameLabel").textContent=`${game.history().length} half-moves · ${game.isCheck()?"Check":"Standard rules"}`;
+ $("modeBadge").textContent=$("mode").value==="engine"?"Vs Stockfish":"Practice";
+ $("undoBtn").disabled=game.history().length===0;
+ renderMoves();
+}
+function renderMoves(){
+ const root=$("moves"), hist=game.history();root.innerHTML="";
+ if(!hist.length){root.innerHTML='<span class="muted small">No moves yet.</span>';return;}
+ for(let i=0;i<hist.length;i+=2){
+  const n=document.createElement("span");n.className="move-no";n.textContent=(i/2+1)+".";
+  const w=document.createElement("button");w.className="move";w.textContent=hist[i]||"";
+  const b=document.createElement("button");b.className="move";b.textContent=hist[i+1]||"";
+  root.append(n,w,b);
+ }
+ root.scrollTop=root.scrollHeight;
+}
+function onSquare(sq){
+ if(engineBusy||game.isGameOver())return;
+ if($("mode").value==="engine"&&game.turn()==="b")return;
+ const p=game.get(sq);
+ if(selected&&legalTargets.includes(sq)){
+  const moves=game.moves({square:selected,verbose:true}).filter(m=>m.to===sq);
+  let promotion;
+  if(moves.some(m=>m.flags.includes("p"))){promotion=(prompt("Promote to queen, rook, bishop, or knight? (q/r/b/n)","q")||"q").toLowerCase();if(!"qrbn".includes(promotion))promotion="q";}
+  const before=currentEval;
+  const move=game.move({from:selected,to:sq,...(promotion?{promotion}: {})});
+  if(move){lastMove={from:move.from,to:move.to};history.push({fen:game.fen(),san:move.san,eval:before,moveColor:move.color});selected=null;legalTargets=[];render();$("boardStatus").textContent=move.san+" played.";
+   if($("autoAnalyze").checked)analyzeAfterMove(history[history.length-1]);
+  }return;
+ }
+ if(p&&p.color===game.turn()){
+  selected=sq;legalTargets=game.moves({square:sq,verbose:true}).map(m=>m.to);render();
+ }else{selected=null;legalTargets=[];render();}
+}
+function scoreToWhite(score, sideToMove){if(score.mate!==undefined)return {mate:score.mate,whiteMate:sideToMove==="w"?score.mate:-score.mate};return {cp:score.cp*(sideToMove==="w"?1:-1)};}
+function formatEval(e){if(!e)return "—";if(e.mate!==undefined)return "M"+Math.abs(e.whiteMate);return (e.cp>=0?"+":"")+(e.cp/100).toFixed(2);}
+function parseInfo(line, rootSide){
+ const d=line.match(/\bdepth (\d+)/), cp=line.match(/\bscore cp (-?\d+)/), mate=line.match(/\bscore mate (-?\d+)/), pv=line.match(/\bpv (.+)$/);
+ if(!cp&&!mate)return null;
+ const raw=cp?{cp:Number(cp[1])}:{mate:Number(mate[1])};
+ return {depth:d?Number(d[1]):0,...scoreToWhite(raw,rootSide),pv:pv?pv[1]:""};
+}
+function initEngine(){
+ try{
+  // A same-origin Blob worker imports the engine from the CDN. locateFile points
+  // Emscripten at the matching WASM asset instead of the Blob URL.
+  const workerSource=`self.Module={locateFile:(path)=>path.endsWith(".wasm")?"${engineWasm}":path};importScripts("${engineScript}");`;
+  const workerBlob=new Blob([workerSource],{type:"text/javascript"});
+  engine=new Worker(URL.createObjectURL(workerBlob));
+  engine.onmessage=e=>{
+   const line=String(e.data||"");
+   if(line==="uciok"){engine.postMessage("isready");return;}
+   if(line==="readyok"){engineReady=true;setBadge("Stockfish 19 ready",true);$("engineNotice").textContent="Stockfish is ready. Analysis runs on your device; positions are sent to the engine locally in your browser.";analyzePosition();return;}
+   if(line.startsWith("info ")){
+    const result=parseInfo(line,searchRootSide);
+    if(result){latestSearch=result;updateAnalysis(result);}
+   }
+   if(line.startsWith("bestmove")){
+    if(searchResolve){const r=searchResolve;searchResolve=null;r({best:line.split(/\s+/)[1],info:latestSearch});}
+   }
+  };
+  engine.onerror=()=>{setBadge("Engine failed to load");$("engineNotice").textContent="Could not load Stockfish. Check your internet connection and reload this page.";};
+  engine.postMessage("uci");
+ }catch(e){setBadge("Engine unavailable");}
+}
+let searchRootSide="w",latestSearch=null;
+function searchPosition(position, dep=depth()){
+ return new Promise(resolve=>{
+  if(!engineReady){resolve(null);return;}
+  if(searchResolve){engine.postMessage("stop");const old=searchResolve;searchResolve=null;old(null);}
+  latestSearch=null;searchRootSide=position.split(" ")[1]||"w";searchResolve=resolve;
+  engine.postMessage("position fen "+position);engine.postMessage("go depth "+dep);
+ });
+}
+function updateAnalysis(r){
+ currentEval={...r};
+ $("evalNum").textContent=formatEval(r);
+ const cp=r.mate!==undefined?(r.whiteMate>0?1000:-1000):r.cp;
+ const pct=Math.max(2,Math.min(98,50+cp/30));
+ $("evalFill").style.width=pct+"%";
+ $("evalStatus").textContent=`Depth ${r.depth||"—"} · ${r.cp!==undefined?(r.cp>=0?"White":"Black")+" advantage":"Forced mate"} · evaluation from White's perspective`;
+ $("pv").textContent=r.pv?uciLineToSan(r.pv,fen()):"No principal variation available.";
+}
+function uciLineToSan(line,startFen){
+ try{const temp=new Chess(startFen);return line.split(" ").slice(0,12).map(u=>{const m=temp.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||"q"});return m?m.san:"";}).filter(Boolean).join(" ");}catch(e){return line;}
+}
+async function analyzePosition(){
+ if(!engineReady||analyzing)return;
+ analyzing=true;engineBusy=true;setBadge("Analyzing…",false);
+ const result=await searchPosition(fen());
+ if(result&&result.info){currentEval=result.info;bestUci=result.best;updateAnalysis(result.info);$("boardStatus").textContent="Position analyzed. Select a move to continue.";}
+ analyzing=false;engineBusy=false;setBadge("Stockfish 19 ready",true);
+}
+function classify(loss){
+ if(loss<=0.18)return ["Excellent / best","good","You found a move very close to the engine's top choice."];
+ if(loss<=0.45)return ["Good","good","A sound move. It gives up very little compared with the engine's preferred continuation."];
+ if(loss<=0.9)return ["Inaccuracy","warn","A playable move, but Stockfish sees a more effective continuation."];
+ if(loss<=1.8)return ["Mistake","warn","This move noticeably worsens your position. Look for the tactical or positional idea you missed."];
+ return ["Blunder","bad","A major evaluation swing. Check whether you left material en prise, missed a tactic, or weakened your king."];
+}
+async function analyzeAfterMove(entry){
+ if(!engineReady)return;
+ engineBusy=true;setBadge("Analyzing move…");$("feedback").innerHTML="<strong>Analyzing your move…</strong><span class='small muted'>Stockfish is comparing the position before and after your move.</span>";
+ const before=entry.eval;
+ const after=await searchPosition(entry.fen);
+ if(after&&after.info){
+  const a=after.info;currentEval=a;bestUci=after.best;updateAnalysis(a);
+  if(before&&before.cp!==undefined&&a.cp!==undefined){
+   const loss=entry.moveColor==="w"?(before.cp-a.cp)/100:(a.cp-before.cp)/100;
+   const [grade,kind,desc]=classify(Math.max(0,loss));
+   $("feedback").innerHTML=`<strong><span class="tag ${kind}">${grade}</span>${entry.san}</strong><span class="small">${desc}</span><div class="small muted" style="margin-top:7px">Estimated centipawn loss: ${Math.max(0,loss).toFixed(2)} · Before: ${formatEval(before)} · After: ${formatEval(a)}</div>`;
+   if($("speak").checked&&"speechSynthesis"in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(grade+". "+desc));}
+  }else{
+   $("feedback").innerHTML=`<strong>${entry.san} played</strong><span class="small muted">Position evaluated. Make another move after reviewing the best continuation.</span>`;
+  }
+ }
+ engineBusy=false;setBadge("Stockfish 19 ready",true);
+ if($("mode").value==="engine"&&game.turn()==="b"&&!game.isGameOver())engineReply();
+}
+async function engineReply(){
+ if(!engineReady||engineBusy||game.turn()!=="b")return;
+ engineBusy=true;$("boardStatus").textContent="Stockfish is thinking…";setBadge("Stockfish thinking…");
+ const result=await searchPosition(fen(),Math.max(depth(),12));
+ if(result&&result.best&&result.best!=="(none)"){
+  const u=result.best;const m=game.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||"q"});
+  if(m){lastMove={from:m.from,to:m.to};history.push({fen:game.fen(),san:m.san,eval:result.info,moveColor:m.color});render();}
+ }
+ engineBusy=false;setBadge("Stockfish 19 ready",true);$("boardStatus").textContent="Your turn.";
+ const r=await searchPosition(fen());if(r&&r.info){currentEval=r.info;updateAnalysis(r.info);}
+}
+$("undoBtn").onclick=()=>{
+ if(engineBusy)return;
+ if(game.history().length){game.undo();if($("mode").value==="engine"&&game.turn()==="b"&&game.history().length)game.undo();history.pop();if($("mode").value==="engine"&&history.length&&history[history.length-1].moveColor==="w")history.pop();lastMove=null;selected=null;legalTargets=[];currentEval=null;render();$("feedback").innerHTML="<strong>Move undone</strong><span class='small muted'>Analyze the position or continue playing.</span>";analyzePosition();}
+};
+$("newBtn").onclick=()=>{
+ // A fresh game remains available even while Stockfish is thinking.
+ if(engineBusy&&engine){
+  try{engine.postMessage("stop");}catch(e){}
+  if(searchResolve){const finish=searchResolve;searchResolve=null;finish(null);}
+ }
+ game.reset();history=[];selected=null;legalTargets=[];lastMove=null;currentEval=null;bestUci=null;
+ $("feedback").innerHTML="<strong>New game started</strong><span class='small muted'>Make your first move.</span>";
+ $("pv").textContent="Engine line will appear here.";
+ $("evalNum").textContent="—";$("evalStatus").textContent="Waiting for engine analysis…";$("evalFill").style.width="50%";
+ $("boardStatus").textContent=engineReady?"New game started. Analyzing the starting position…":"New game started. Waiting for Stockfish to finish loading…";
+ render();
+ // Allow any cancelled search to settle before starting analysis of the new position.
+ analyzing=false;engineBusy=false;
+ if(engineReady)Promise.resolve().then(()=>analyzePosition());
+};
+$("flipBtn").onclick=()=>{flipped=!flipped;render();};
+$("hintBtn").onclick=async()=>{if(!engineReady||engineBusy)return;engineBusy=true;setBadge("Finding best move…");const r=await searchPosition(fen());if(r&&r.best){bestUci=r.best;const from=r.best.slice(0,2),to=r.best.slice(2,4);$("feedback").innerHTML=`<strong>Engine recommendation: ${from} → ${to}</strong><span class="small muted">Follow the principal variation on the right. Try to identify the purpose of the move before playing it.</span>`;const a=document.querySelector(`[data-square="${from}"]`),b=document.querySelector(`[data-square="${to}"]`);if(a&&b){a.classList.add("selected");b.classList.add("last");}}engineBusy=false;setBadge("Stockfish 19 ready",true);};
+$("reviewBtn").onclick=()=>analyzePosition();
+$("mode").onchange=()=>{render();$("boardStatus").textContent=$("mode").value==="engine"?"You play White. Stockfish plays Black.":"Practice mode: play either side.";};
+$("depth").oninput=()=>{$("depthVal").textContent=depth();};
+render();initEngine();
+})();
+</script>
+</body>
+</html>
